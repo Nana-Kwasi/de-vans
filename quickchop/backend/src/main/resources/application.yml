@@ -1,0 +1,97 @@
+quickchop:
+  business-name: ${BUSINESS_NAME:QuickChop}
+  delivery-fee: ${DELIVERY_FEE:0.00}   # flat fallback when no coords are sent
+  # Restaurant origin — Anyaa Last Stop, Accra. Delivery distance/fee are
+  # measured from here. Override per-environment with STORE_LAT / STORE_LNG.
+  store:
+    lat: ${STORE_LAT:5.6072}
+    lng: ${STORE_LNG:-0.2838}
+  delivery:
+    base-fee: ${DELIVERY_BASE_FEE:5.00}
+    per-km: ${DELIVERY_PER_KM:1.50}
+    max-fee: ${DELIVERY_MAX_FEE:50.00}
+
+spring:
+  application:
+    name: quickchop-backend
+
+  servlet:
+    multipart:
+      max-file-size: 60MB
+      # A little above max-file-size to leave room for multipart encoding overhead.
+      max-request-size: 65MB
+
+  # Default profile targets Supabase Postgres (via the connection pooler + SSL).
+  # Use --spring.profiles.active=local to run against in-memory H2 instead.
+  # SSL and pooler-specific driver options (sslmode, prepareThreshold) live in the
+  # SUPABASE_DB_URL query string (see .env.example) so they never touch the H2
+  # local profile, which overrides this datasource entirely.
+  datasource:
+    url: ${SUPABASE_DB_URL:jdbc:postgresql://localhost:5432/quickchop}
+    username: ${SUPABASE_DB_USER:postgres}
+    password: ${SUPABASE_DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # Keep the pool small — Supabase's pooler multiplexes connections for you.
+      maximum-pool-size: ${DB_POOL_SIZE:8}
+      minimum-idle: ${DB_MIN_IDLE:1}
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Supabase JWKS endpoint — Spring validates customer JWTs against this.
+          jwk-set-uri: ${SUPABASE_JWKS_URI:https://YOUR-PROJECT.supabase.co/auth/v1/.well-known/jwks.json}
+          issuer-uri: ${SUPABASE_ISSUER_URI:https://YOUR-PROJECT.supabase.co/auth/v1}
+          # Supabase signs access tokens with ES256; without this Spring only
+          # accepts RS256 (its default for jwk-set-uri) and rejects every token.
+          jws-algorithms:
+            - ES256
+            - RS256
+
+# Supabase (Storage for meal images; URL/JWKS for auth are under spring.security above)
+supabase:
+  url: ${SUPABASE_URL:https://YOUR-PROJECT.supabase.co}
+  # Service-role key — server-only secret, bypasses Storage RLS for uploads. Never expose to clients.
+  service-key: ${SUPABASE_SERVICE_KEY:}
+  storage:
+    bucket: ${SUPABASE_BUCKET:menu-images}
+
+# App-specific secrets & integrations (all from env vars — never hardcode)
+admin:
+  jwt:
+    secret: ${ADMIN_JWT_SECRET:change-me-in-env-must-be-at-least-32-bytes-long-secret}
+    expiry-minutes: ${ADMIN_JWT_EXPIRY_MINUTES:720}
+
+paystack:
+  secret-key: ${PAYSTACK_SECRET_KEY:sk_test_replace_me}
+  base-url: ${PAYSTACK_BASE_URL:https://api.paystack.co}
+
+fcm:
+  # Path to the Firebase service-account JSON, or leave blank to disable push in dev.
+  credentials-path: ${FCM_CREDENTIALS_PATH:}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+server:
+  port: ${PORT:8080}
+
+logging:
+  level:
+    org.springframework.security: INFO

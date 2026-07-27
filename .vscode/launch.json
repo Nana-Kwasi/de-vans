@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Quickchop (Supabase / Postgres) — USE THIS with the mobile app",
+      "request": "launch",
+      "mainClass": "com.quickchop.QuickchopApplication",
+      "env": {
+        "SUPABASE_DB_URL": "jdbc:postgresql://aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require",
+        "SUPABASE_DB_USER": "postgres.mjrkrwbutdoevosjklbc",
+        "SUPABASE_DB_PASSWORD": "BoNyFE8itWFfSCfg",
+        "SUPABASE_JWKS_URI": "https://mjrkrwbutdoevosjklbc.supabase.co/auth/v1/.well-known/jwks.json",
+        "SUPABASE_ISSUER_URI": "https://mjrkrwbutdoevosjklbc.supabase.co/auth/v1"
+      }
+    },
+    {
+      "type": "java",
+      "name": "Quickchop (local / H2) — NO real Supabase login",
+      "request": "launch",
+      "mainClass": "com.quickchop.QuickchopApplication",
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "local"
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "QOOKA",
+    "slug": "quickchop",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "quickchop",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#FF7A18"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.quickchop.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "QOOKA uses your location to show your delivery area and nearby options."
+      }
+    },
+    "android": {
+      "package": "com.quickchop.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#FF7A18"
+      }
+    },
+    "plugins": ["expo-notifications"],
+    "extra": {
+      "apiBaseUrl": "http://localhost:8080",
+      "supabaseUrl": "https://YOUR-PROJECT.supabase.co",
+      "supabaseAnonKey": "YOUR-SUPABASE-ANON-KEY"
+    }
+  }
+}
