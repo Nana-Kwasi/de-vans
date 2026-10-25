@@ -50,6 +50,24 @@ public class Order {
     @Column(nullable = false)
     private boolean pickup = false;
 
+    // Drop-off point from the customer's device, kept so a rider can navigate to it.
+    @Column(name = "delivery_lat")
+    private Double deliveryLat;
+
+    @Column(name = "delivery_lng")
+    private Double deliveryLng;
+
+    /** GPS accuracy radius (metres) the drop-off point was captured at. */
+    @Column(name = "delivery_accuracy_m")
+    private Double deliveryAccuracyM;
+
+    @Column(name = "contact_phone", length = 20)
+    private String contactPhone;
+
+    /** When payment was confirmed (Paystack webhook / verify). Null = unpaid. */
+    @Column(name = "paid_at")
+    private OffsetDateTime paidAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -89,6 +107,16 @@ public class Order {
     public void setTotal(BigDecimal total) { this.total = total; }
     public boolean isPickup() { return pickup; }
     public void setPickup(boolean pickup) { this.pickup = pickup; }
+    public Double getDeliveryLat() { return deliveryLat; }
+    public void setDeliveryLat(Double deliveryLat) { this.deliveryLat = deliveryLat; }
+    public Double getDeliveryLng() { return deliveryLng; }
+    public void setDeliveryLng(Double deliveryLng) { this.deliveryLng = deliveryLng; }
+    public Double getDeliveryAccuracyM() { return deliveryAccuracyM; }
+    public void setDeliveryAccuracyM(Double deliveryAccuracyM) { this.deliveryAccuracyM = deliveryAccuracyM; }
+    public String getContactPhone() { return contactPhone; }
+    public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
+    public OffsetDateTime getPaidAt() { return paidAt; }
+    public void setPaidAt(OffsetDateTime paidAt) { this.paidAt = paidAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }

@@ -1,8 +1,10 @@
 import React, { useEffect } from "react";
 import { Platform } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import * as Linking from "expo-linking";
+import { NavigationContainer, LinkingOptions } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { RootStackParamList, TabParamList } from "./types";
 import { colors } from "@/theme/glass";
@@ -23,6 +25,7 @@ import { EditProfileScreen } from "@/screens/EditProfileScreen";
 import { DeliveryAddressesScreen } from "@/screens/DeliveryAddressesScreen";
 import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { HelpSupportScreen } from "@/screens/HelpSupportScreen";
+import { PolicyGate } from "@/components/PolicyGate";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -36,6 +39,10 @@ const TAB_ICON: Record<keyof TabParamList, [IconName, IconName]> = {
 };
 
 function MainTabs() {
+  // The bottom inset is 0 on phones with hardware buttons and ~24-48px on gesture-nav
+  // devices; reading it is the only way the tab bar clears the system navigation.
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -43,13 +50,17 @@ function MainTabs() {
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: "700", marginTop: 2 },
+        // Height and bottom padding follow the device's own safe-area inset rather than
+        // a hardcoded number. Android phones with gesture navigation reserve a strip at
+        // the bottom that a fixed 10px does not clear, which is what was cutting the
+        // tab labels in half.
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.hairline,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 84 : 64,
+          height: 60 + Math.max(insets.bottom, Platform.OS === "ios" ? 24 : 8),
           paddingTop: 8,
-          paddingBottom: Platform.OS === "ios" ? 28 : 10,
+          paddingBottom: Math.max(insets.bottom, Platform.OS === "ios" ? 24 : 8),
         },
         tabBarIcon: ({ focused, color, size }) => {
           const [active, inactive] = TAB_ICON[route.name];
@@ -65,6 +76,24 @@ function MainTabs() {
   );
 }
 
+/**
+ * Deep links. A shared dish link is https://qookaqooks.web.app/item?id=… — the website
+ * handles anyone without the app, and this opens the dish directly for anyone who has
+ * it. quickchop:// is the app's own scheme, used by OAuth and by the website's
+ * "Open in app" button.
+ */
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ["quickchop://", "https://qookaqooks.web.app", Linking.createURL("/")],
+  config: {
+    screens: {
+      // /item?id=<uuid> — the id arrives as a route param and the screen looks the
+      // dish up, since a link cannot carry the whole object.
+      ItemDetail: "item",
+      OrderTracking: "order/:orderId",
+    },
+  },
+};
+
 export function RootNavigator() {
   const init = useAuth((s) => s.init);
   const loadConfig = useConfig((s) => s.load);
@@ -78,7 +107,7 @@ export function RootNavigator() {
   // and on the account tabs (Orders / Payment / Profile) — see each screen.
   // The Welcome screen shows on every launch, then the user enters the app.
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator
         initialRouteName="Welcome"
         screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}
@@ -96,6 +125,7 @@ export function RootNavigator() {
         <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} options={{ presentation: "modal" }} />
       </Stack.Navigator>
+      <PolicyGate />
     </NavigationContainer>
   );
 }

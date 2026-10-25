@@ -1,5 +1,5 @@
 import { api } from "./client";
-import { AppConfig, Customer, MenuItem, Order, PaymentInitResponse } from "./types";
+import { AppConfig, Customer, MenuItem, Order, OrderTracking, PaymentInitResponse, PolicyStatus } from "./types";
 
 export const MenuApi = {
   list: () => api.get<MenuItem[]>("/api/menu").then((r) => r.data),
@@ -28,6 +28,9 @@ export interface PlaceOrderBody {
   kitchenNote?: string;
   deliveryLat?: number;
   deliveryLng?: number;
+  /** GPS accuracy (metres) of the drop-off point, so the rider knows how far to trust it. */
+  deliveryAccuracyM?: number;
+  contactPhone?: string;
   pickup?: boolean;
 }
 
@@ -36,7 +39,19 @@ export const OrderApi = {
     api.post<Order>("/api/orders", body).then((r) => r.data),
   mine: () => api.get<Order[]>("/api/orders/me").then((r) => r.data),
   get: (id: string) => api.get<Order>(`/api/orders/${id}`).then((r) => r.data),
+  tracking: (id: string) => api.get<OrderTracking>(`/api/orders/${id}/tracking`).then((r) => r.data),
+  updateDropoff: (id: string, body: { lat: number; lng: number; accuracyM?: number }) =>
+    api.patch<Order>(`/api/orders/${id}/dropoff`, body).then((r) => r.data),
 };
+
+export const PolicyApi = {
+  status: () => api.get<PolicyStatus[]>("/api/customers/me/policies").then((r) => r.data),
+  accept: (policyIds: string[]) =>
+    api.post<PolicyStatus[]>("/api/customers/me/policies/accept", { policyIds }).then((r) => r.data),
+};
+
+/** Public web pages for each policy (also the links given to the app stores). */
+export const LEGAL_URL = (slug: "customer-privacy" | "customer-terms") => `https://qookaqooks.com/legal/${slug}`;
 
 export const PaymentApi = {
   initialize: (body: { orderId: string; method: string; email: string }) =>

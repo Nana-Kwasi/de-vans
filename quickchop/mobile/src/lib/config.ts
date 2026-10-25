@@ -12,6 +12,7 @@ import Constants from "expo-constants";
  */
 const extra = (Constants.expoConfig?.extra ?? {}) as {
   apiBaseUrl?: string;
+  apiBaseUrlPinned?: boolean;
   supabaseUrl?: string;
   supabaseAnonKey?: string;
 };
@@ -27,9 +28,13 @@ function metroHost(): string | undefined {
 }
 
 function resolveApiBaseUrl(): string {
-  // In dev, always reuse the machine that's serving Metro — it's the current
-  // host, so a changing Wi-Fi/LAN IP never breaks the connection. (A pinned
-  // EXPO_PUBLIC_API_BASE_URL would go stale the moment the IP changes.)
+  // An explicitly pinned EXPO_PUBLIC_API_BASE_URL wins, so a dev build can be pointed
+  // at the deployed backend. The "a pinned URL goes stale" worry applies to a LAN IP,
+  // not to a Cloud Run URL — and unpinned is still the default, so the Metro host
+  // remains the behaviour when nothing is set.
+  if (extra.apiBaseUrlPinned && extra.apiBaseUrl) return extra.apiBaseUrl;
+  // In dev, reuse the machine that's serving Metro — it's the current host, so a
+  // changing Wi-Fi/LAN IP never breaks the connection.
   const host = metroHost();
   if (host) return `http://${host}:${API_PORT}`;
   // Standalone/production build (no Metro): use the configured URL, else localhost.
@@ -43,10 +48,11 @@ export const config = {
 };
 
 /**
- * Payments are SIMULATED until real Paystack keys are added. Flip to `false`
- * (or wire it to an env var) to use the live Paystack checkout in PaymentScreen.
+ * When true, "Pay" opens a fake sheet that never reaches the server — the order then
+ * stays unpaid (no confirmation email, kitchen not alerted, can't go to riders). Keep it
+ * false: Paystack's checkout is used, in test mode while the server has a sk_test_ key.
  */
-export const SIMULATE_PAYMENTS = true;
+export const SIMULATE_PAYMENTS = false;
 
 /**
  * Resolve a menu image URL. Backend-served images (".../uploads/x.jpg") are
@@ -61,3 +67,8 @@ export function resolveImageUrl(url?: string | null): string | undefined {
   if (url.startsWith("/")) return base + url;
   return url;
 }
+
+/** Public site used for shared links. The app registers this host for deep linking, so
+ *  a recipient with the app installed lands on the dish; everyone else gets the web
+ *  page, which offers to open the app. */
+export const SHARE_BASE = "https://qookaqooks.web.app";

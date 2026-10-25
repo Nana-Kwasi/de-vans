@@ -20,6 +20,8 @@ import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.HexFormat;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -38,15 +40,21 @@ public class PaymentService {
     private final ObjectMapper mapper = new ObjectMapper();
     private final RestClient paystack;
     private final String secretKey;
+    /** Paystack channels offered at checkout. Mobile money only by default; set
+     *  PAYSTACK_CHANNELS (comma separated, e.g. "mobile_money,card") to widen it. */
+    private final List<String> channels;
 
     public PaymentService(PaymentRepository paymentRepo, OrderRepository orderRepo,
                           OrderService orderService,
                           @Value("${paystack.secret-key}") String secretKey,
-                          @Value("${paystack.base-url:https://api.paystack.co}") String baseUrl) {
+                          @Value("${paystack.base-url:https://api.paystack.co}") String baseUrl,
+                          @Value("${paystack.channels:mobile_money}") String channelsCsv) {
         this.paymentRepo = paymentRepo;
         this.orderRepo = orderRepo;
         this.orderService = orderService;
         this.secretKey = secretKey;
+        this.channels = Arrays.stream(channelsCsv.split(","))
+                .map(String::trim).filter(c -> !c.isEmpty()).toList();
         this.paystack = RestClient.builder()
                 .baseUrl(baseUrl)
                 .defaultHeader("Authorization", "Bearer " + secretKey)
@@ -82,7 +90,11 @@ public class PaymentService {
                             "email", req.email(),
                             "amount", amountMinor,
                             "currency", "GHS",
-                            "reference", reference))
+                            "reference", reference,
+                            // Without this Paystack offers every channel enabled on the
+                            // account, card included. The business takes mobile money, so
+                            // showing a card tab only produces failed checkouts.
+                            "channels", channels))
                     .retrieve()
                     .body(JsonNode.class);
 

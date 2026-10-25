@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AuthApi } from "@/api/endpoints";
 import { useAuth } from "@/store/auth";
 import { BUSINESS_NAME } from "@/theme/format";
+import { AuthLayout } from "@/components/AuthLayout";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -18,22 +19,28 @@ export function LoginPage() {
     setLoading(true);
     try {
       const res = await AuthApi.login(email.trim(), password);
-      setAuth(res.token, res.email, res.fullName);
-      navigate("/");
+      setAuth(res.token, res.email, res.fullName, res.mustChangePassword);
+      // A freshly invited admin is still on their temporary password; send them
+      // straight to the change-password screen rather than into the dashboard.
+      navigate(res.mustChangePassword ? "/settings?first=1" : "/");
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Invalid email or password");
+      // Distinguish a rejected login from an unreachable API. axios reports both as an
+      // error, but with no `response` when the request never landed — reporting that as
+      // "Invalid email or password" sends you hunting for a credentials problem that
+      // does not exist.
+      setError(
+        err?.response
+          ? err.response.data?.message ?? "Invalid email or password"
+          : "Cannot reach the server. Check that the API is running and VITE_API_BASE_URL is correct."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div
-      className="relative flex min-h-screen items-center justify-center p-4"
-      style={{ backgroundImage: "url(/web.jpg)", backgroundSize: "cover", backgroundPosition: "center" }}
-    >
-      <div className="absolute inset-0 bg-black/50" />
-      <form onSubmit={submit} className="card relative z-10 w-full max-w-md p-8">
+    <AuthLayout>
+      <form onSubmit={submit} className="card w-full p-6 sm:p-8">
         <div className="mb-6 flex items-center gap-3">
           <img src="/qooka-logo.jpeg" alt={BUSINESS_NAME} className="h-12 w-12 rounded-xl object-cover" />
           <div>
@@ -70,10 +77,10 @@ export function LoginPage() {
           {loading ? "Signing in…" : "Sign in"}
         </button>
 
-        <p className="mt-4 text-center text-xs font-medium text-ink-muted">
-          First login uses the seeded password. Change it after signing in.
+        <p className="mt-4 text-center text-sm font-semibold">
+          <Link to="/forgot-password" className="text-brand hover:underline">Forgot password?</Link>
         </p>
       </form>
-    </div>
+    </AuthLayout>
   );
 }

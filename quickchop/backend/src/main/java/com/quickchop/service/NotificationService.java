@@ -58,8 +58,12 @@ public class NotificationService {
     }
 
     public void sendOrderUpdate(Order order, String fcmToken) {
-        String title = "QuickChop — Order " + order.getOrderNumber();
-        String body = statusMessage(order);
+        sendMessage(order, fcmToken, statusMessage(order));
+    }
+
+    /** Pushes an arbitrary order message (used for rider events that are not a status change). */
+    public void sendMessage(Order order, String fcmToken, String body) {
+        String title = "Qooka Qooks Restaurant — Order " + order.getOrderNumber();
 
         if (messaging == null || fcmToken == null || fcmToken.isBlank()) {
             log.info("[push:disabled] would notify token={} -> {}: {}", mask(fcmToken), title, body);
@@ -86,6 +90,8 @@ public class NotificationService {
         return switch (order.getStatus()) {
             case ORDER_RECEIVED -> "We've received your order!";
             case PREPARING -> order.isPickup() ? "Your order is being processed." : "Your food is being prepared.";
+            case AWAITING_RIDER -> "Your food is ready — we're assigning a rider.";
+            case RIDER_ASSIGNED -> "A rider has accepted your order and is heading to the kitchen.";
             case OUT_FOR_DELIVERY -> "Your order is out for delivery.";
             case DELIVERED -> "Your order has been delivered. Enjoy!";
             case READY -> "Your order is ready for pickup!";

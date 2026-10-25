@@ -1,0 +1,14 @@
+{
+  "hosting": {
+    "public": "public",
+    "site": "qookaqooks",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "cleanUrls": true,
+    "headers": [
+      {
+        "source": "**/*.@(jpeg|jpg|png|css)",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }]
+      }
+    ]
+  }
+}

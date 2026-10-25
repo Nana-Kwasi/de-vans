@@ -31,6 +31,11 @@ public class MenuItem {
     @Column(nullable = false, length = 20)
     private String category;
 
+    // Drinks only: "soft" (bottled/canned) or "local" (sobolo, ginger, watermelon…).
+    // Drives the Soft drinks / Local drinks tabs in the app. Null for food.
+    @Column(name = "drink_type", length = 10)
+    private String drinkType;
+
     @Column(name = "is_available", nullable = false)
     private boolean available = true;
 
@@ -54,6 +59,8 @@ public class MenuItem {
     public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
+    public String getDrinkType() { return drinkType; }
+    public void setDrinkType(String drinkType) { this.drinkType = drinkType; }
     public boolean isAvailable() { return available; }
     public void setAvailable(boolean available) { this.available = available; }
     public boolean isFeatured() { return featured; }

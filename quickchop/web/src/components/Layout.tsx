@@ -1,15 +1,21 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/store/auth";
 import { BUSINESS_NAME } from "@/theme/format";
+import { GlobalSearch } from "@/components/GlobalSearch";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: "🏠", end: true },
   { to: "/orders", label: "Live Orders", icon: "🧾" },
+  { to: "/deliveries", label: "Deliveries", icon: "🛵" },
+  { to: "/riders", label: "Riders", icon: "🪪" },
   { to: "/menu", label: "Menu", icon: "🍽️" },
   { to: "/sales", label: "Sales", icon: "📊" },
   { to: "/customers", label: "Customers", icon: "👥" },
   { to: "/reviews", label: "Reviews", icon: "⭐" },
   { to: "/support", label: "Support", icon: "💬" },
+  { to: "/policies", label: "Policies", icon: "📜" },
+  { to: "/consents", label: "Consents", icon: "✅" },
   { to: "/settings", label: "Settings", icon: "⚙️" },
 ];
 
@@ -39,6 +45,12 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
 export function Layout() {
   const { fullName, email, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const current = nav.find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)));
+
+  // Close the phone menu whenever the page changes.
+  useEffect(() => setMenuOpen(false), [pathname]);
 
   const signOut = () => {
     logout();
@@ -81,16 +93,47 @@ export function Layout() {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile top bar + nav */}
-        <header className="flex items-center justify-between border-b border-hairline bg-surface px-4 py-3 md:hidden">
-          <p className="text-lg font-black text-ink">{BUSINESS_NAME} Admin</p>
-          <button onClick={signOut} className="text-sm font-bold text-brand-dark">Sign out</button>
+        {/* Phone/tablet top bar: current section + a menu button that opens every section. */}
+        <header className="sticky top-0 z-[1500] flex items-center justify-between gap-3 border-b border-hairline bg-surface px-4 py-3 md:hidden">
+          <div className="flex min-w-0 items-center gap-2">
+            <img src="/qooka-logo.jpeg" alt={BUSINESS_NAME} className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-ink">{current?.label ?? "Admin"}</p>
+              <p className="-mt-0.5 truncate text-xs font-semibold text-ink-muted">{BUSINESS_NAME}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+          <GlobalSearch variant="icon" />
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-canvas text-xl text-ink"
+          >
+            {menuOpen ? "✕" : "☰"}
+          </button>
+          </div>
         </header>
-        <nav className="flex gap-2 overflow-x-auto border-b border-hairline bg-surface px-4 py-2 md:hidden">
-          <NavItems />
-        </nav>
+        {/* Desktop top bar */}
+        <div className="sticky top-0 z-[1500] hidden items-center border-b border-hairline bg-surface/90 px-8 py-3 backdrop-blur md:flex">
+          <GlobalSearch variant="bar" />
+        </div>
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-[1400] bg-black/30 md:hidden" onClick={() => setMenuOpen(false)} />
+            <div className="fixed inset-x-0 top-[57px] z-[1450] max-h-[calc(100vh-57px)] overflow-y-auto border-b border-hairline bg-surface p-3 shadow-card md:hidden">
+              <nav className="grid grid-cols-2 gap-1">
+                <NavItems onNavigate={() => setMenuOpen(false)} />
+              </nav>
+              <div className="mt-3 flex items-center justify-between border-t border-hairline px-2 pt-3">
+                <p className="min-w-0 truncate text-xs font-semibold text-ink-muted">{email}</p>
+                <button onClick={signOut} className="shrink-0 text-sm font-bold text-brand-dark">Sign out</button>
+              </div>
+            </div>
+          </>
+        )}
 
-        <main className="flex-1 p-5 md:p-8">
+        <main className="min-w-0 flex-1 p-4 sm:p-5 md:p-8">
           <Outlet />
         </main>
       </div>

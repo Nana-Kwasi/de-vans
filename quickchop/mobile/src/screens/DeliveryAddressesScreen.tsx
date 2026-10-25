@@ -24,7 +24,7 @@ export function DeliveryAddressesScreen({ navigation }: Props) {
   };
 
   return (
-    <ScreenBackground>
+    <ScreenBackground avoidKeyboard>
       <ScreenHeader title="Delivery addresses" onBack={() => navigation.goBack()} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 8, paddingBottom: 40 }}>
         {addresses.length === 0 ? (

@@ -80,7 +80,7 @@ export function EditProfileScreen({ navigation }: Props) {
   };
 
   return (
-    <ScreenBackground>
+    <ScreenBackground avoidKeyboard>
       <ScreenHeader title="Edit profile" onBack={() => navigation.goBack()} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 8, paddingBottom: 40 }}>
         <Text style={styles.section}>Your details</Text>

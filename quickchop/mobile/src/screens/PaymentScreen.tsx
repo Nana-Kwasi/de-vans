@@ -28,15 +28,35 @@ export function PaymentScreen({ route, navigation }: Props) {
     navigation.reset({ index: 0, routes: [{ name: "OrderTracking", params: { orderId: order.id } }] });
   };
 
-  // Real Paystack flow — used once SIMULATE_PAYMENTS is false and keys are set.
+  // Paystack checkout. The order only counts as placed once Paystack confirms payment
+  // (the server then emails the confirmation and alerts the kitchen).
+  const [reference, setReference] = useState<string | null>(null);
+
+  const checkPayment = async (ref: string) => {
+    const result: any = await PaymentApi.verify(ref).catch(() => null);
+    if (result?.status === "SUCCESS") {
+      goToTracking();
+      return;
+    }
+    Alert.alert(
+      "Payment not confirmed yet",
+      "We haven't received your payment. If you approved it on your phone, wait a moment and check again.",
+      [
+        { text: "Check again", onPress: () => checkPayment(ref) },
+        { text: "Pay again", onPress: () => payWithPaystack() },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
   const payWithPaystack = async () => {
     setLoading(true);
     try {
       const email = customer?.email ?? "customer@qooka.app";
-      const init = await PaymentApi.initialize({ orderId: order.id, method: "PAYSTACK", email });
+      const init = await PaymentApi.initialize({ orderId: order.id, method: "MOBILE_MONEY", email });
+      setReference(init.reference);
       await WebBrowser.openBrowserAsync(init.authorizationUrl);
-      await PaymentApi.verify(init.reference).catch(() => undefined);
-      goToTracking();
+      await checkPayment(init.reference);
     } catch (e: any) {
       Alert.alert("Payment error", e?.response?.data?.message ?? "Could not start payment.");
     } finally {
@@ -55,7 +75,7 @@ export function PaymentScreen({ route, navigation }: Props) {
       <View style={{ flex: 1 }}>
         <Text style={styles.amountLabel}>Amount to pay</Text>
         <Text style={styles.amount}>{money(order.total)}</Text>
-        <Text style={styles.order}>Order {order.orderNumber}</Text>
+        <Text style={styles.order}>Order {order.orderNumber} · not paid yet</Text>
 
         <View style={styles.card}>
           <View style={styles.iconWrap}>
@@ -63,10 +83,10 @@ export function PaymentScreen({ route, navigation }: Props) {
           </View>
           <Text style={styles.cardTitle}>Secure checkout</Text>
           <Text style={styles.cardText}>
-            Pay with card, mobile money, or bank. Your details are handled securely and never stored in the app.
+            Pay with MTN MoMo, Telecel Cash or AirtelTigo Money. Your details are handled securely and never stored in the app.
           </Text>
           <View style={styles.methods}>
-            {(["card-outline", "phone-portrait-outline", "business-outline"] as const).map((ic) => (
+            {(["phone-portrait-outline", "wallet-outline", "shield-checkmark-outline"] as const).map((ic) => (
               <View key={ic} style={styles.methodPill}>
                 <Ionicons name={ic} size={18} color={colors.textSecondary} />
               </View>
@@ -77,6 +97,11 @@ export function PaymentScreen({ route, navigation }: Props) {
 
       <View style={styles.footer}>
         <PriceActionButton price={money(order.total)} action="Pay Now" onPress={pay} loading={loading} />
+        {reference && !loading && (
+          <Text style={styles.recheck} onPress={() => checkPayment(reference)}>
+            Already paid? Tap to check again
+          </Text>
+        )}
       </View>
 
       <MockPaymentSheet
@@ -103,4 +128,5 @@ const styles = StyleSheet.create({
   methods: { flexDirection: "row", gap: 10, marginTop: 18 },
   methodPill: { width: 46, height: 40, borderRadius: radii.md, backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center" },
   footer: { paddingBottom: 12 },
+  recheck: { textAlign: "center", color: colors.brand, fontWeight: "800", marginTop: 14 },
 });

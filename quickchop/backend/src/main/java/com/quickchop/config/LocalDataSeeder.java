@@ -53,18 +53,31 @@ public class LocalDataSeeder implements CommandLineRunner {
                     "Smoky party jollof rice with grilled chicken.", "55.00", "rice"));
             menuRepo.save(meal("Fried Rice",
                     "Vegetable fried rice with mixed greens and eggs.", "50.00", "rice"));
+            // Two shelves of drinks, so the app's Soft / Local drink tabs have something to show.
+            menuRepo.save(drink("Coca-Cola (350ml)", "Chilled can.", "10.00", "soft"));
+            menuRepo.save(drink("Malta Guinness", "Chilled bottle.", "12.00", "soft"));
+            menuRepo.save(drink("Sobolo", "Hibiscus drink with ginger and cloves.", "10.00", "local"));
+            menuRepo.save(drink("Ginger Drink", "Fresh pressed ginger, lightly sweetened.", "10.00", "local"));
+            menuRepo.save(drink("Watermelon Juice", "Fresh blended watermelon.", "15.00", "local"));
         }
 
         // Single settings row (mirrors migration V9/V10 defaults) so /api/config works locally.
         if (settingsRepo.count() == 0) {
             AppSettings s = new AppSettings();
             s.setId((short) 1);
-            s.setBusinessName("QOOKA QOOKS");
+            s.setBusinessName("Qooka Qooks Restaurant");
             s.setClosedMessage("We are currently closed. Please check back soon.");
             s.setStoreAddress("Anyaa Last Stop, Accra");
-            s.setDeliveryBaseFee(new BigDecimal("5.00"));
-            s.setDeliveryPerKm(new BigDecimal("1.50"));
-            s.setDeliveryMaxFee(new BigDecimal("50.00"));
+            s.setPromoEnabled(true);
+            s.setPromoTitle("Gonna Be a Good Day!");
+            s.setPromoText("Free delivery & 10% cashback on your first order.");
+            s.setPromoCta("Order Now");
+            s.setDeliveryBaseFee(new BigDecimal("10.00"));
+            s.setDeliveryPerKm(new BigDecimal("4.00"));
+            s.setDeliveryMaxFee(new BigDecimal("120.00"));
+            // Base covers the first 3km; per-km starts beyond that. Required (NOT NULL),
+            // so the local H2 profile fails to seed without it.
+            s.setDeliveryIncludedKm(new BigDecimal("3"));
             s.setFreeDeliveryThreshold(BigDecimal.ZERO);
             s.setMinOrderAmount(BigDecimal.ZERO);
             s.setMaxDeliveryKm(new BigDecimal("25"));
@@ -72,6 +85,12 @@ public class LocalDataSeeder implements CommandLineRunner {
             s.setStoreLng(new BigDecimal("-0.2838"));
             settingsRepo.save(s);
         }
+    }
+
+    private MenuItem drink(String name, String description, String price, String drinkType) {
+        MenuItem m = meal(name, description, price, "drinks");
+        m.setDrinkType(drinkType);
+        return m;
     }
 
     private MenuItem meal(String name, String description, String price, String category) {

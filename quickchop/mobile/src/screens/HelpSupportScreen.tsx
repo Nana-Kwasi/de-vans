@@ -13,7 +13,7 @@ import { Order } from "@/api/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "HelpSupport">;
 
-const SUPPORT_EMAIL = "support@quickchop.app";
+const SUPPORT_EMAIL = "qookacooks@gmail.com";
 const TOPICS = ["Order issue", "Payment issue", "Delivery issue", "Account", "Other"];
 
 const FAQ: { q: string; a: string }[] = [
@@ -58,7 +58,7 @@ export function HelpSupportScreen({ navigation }: Props) {
   };
 
   return (
-    <ScreenBackground>
+    <ScreenBackground avoidKeyboard>
       <ScreenHeader title="Help & support" onBack={() => navigation.goBack()} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 8, paddingBottom: 40 }}>
         <Text style={styles.section}>Report an issue</Text>

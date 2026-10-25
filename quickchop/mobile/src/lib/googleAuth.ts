@@ -1,30 +1,18 @@
+import Constants from "expo-constants";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
-import { getQueryParams } from "expo-auth-session/build/QueryParams";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { createSessionFromUrl } from "./authLinks";
 
 // Lets the auth browser tab close itself and hand control back to the app.
 WebBrowser.maybeCompleteAuthSession();
 
 // Redirects back into the app via the "quickchop" scheme (see app.json).
-const redirectTo = AuthSession.makeRedirectUri();
+export const redirectTo = AuthSession.makeRedirectUri();
 
-/** Turns the OAuth redirect URL (with tokens) into a Supabase session. */
-async function createSessionFromUrl(url: string): Promise<Session | null> {
-  const { params, errorCode } = getQueryParams(url);
-  if (errorCode) throw new Error(errorCode);
-
-  const { access_token, refresh_token } = params;
-  if (!access_token) return null;
-
-  const { data, error } = await supabase.auth.setSession({
-    access_token,
-    refresh_token,
-  });
-  if (error) throw error;
-  return data.session;
-}
+console.log("[auth] redirectTo =", redirectTo);
+console.log("[auth] executionEnvironment =", Constants.executionEnvironment);
 
 /**
  * Opens Google's consent screen (via Supabase OAuth) and, on success, sets the

@@ -5,6 +5,7 @@ import com.quickchop.entity.Customer;
 import com.quickchop.entity.SupportTicket;
 import com.quickchop.exception.ApiExceptions.NotFoundException;
 import com.quickchop.repository.SupportTicketRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,10 +16,16 @@ public class SupportService {
 
     private final SupportTicketRepository repo;
     private final CustomerService customerService;
+    private final EmailService emailService;
+    private final String businessName;
 
-    public SupportService(SupportTicketRepository repo, CustomerService customerService) {
+    public SupportService(SupportTicketRepository repo, CustomerService customerService,
+                          EmailService emailService,
+                          @Value("${quickchop.business-name:Qooka Qooks Restaurant}") String businessName) {
         this.repo = repo;
         this.customerService = customerService;
+        this.emailService = emailService;
+        this.businessName = businessName;
     }
 
     /** Create a ticket for the currently-authenticated customer. */
@@ -33,7 +40,17 @@ public class SupportService {
         t.setOrderNumber(req.orderNumber());
         t.setMessage(req.message());
         t.setStatus("OPEN");
-        return toDto(repo.save(t));
+        SupportTicket saved = repo.save(t);
+
+        // Tickets used to land in the database and wait to be noticed. Sending is async
+        // and swallows its own failures, so a mail problem cannot fail the customer's
+        // request — they have still raised a ticket either way.
+        emailService.sendToSupport(
+                EmailTemplates.supportSubject(saved),
+                EmailTemplates.supportText(saved),
+                EmailTemplates.supportHtml(businessName, saved));
+
+        return toDto(saved);
     }
 
     public List<SupportTicketDto> listAll(String status) {

@@ -1,0 +1,11 @@
+# Mirrors .dockerignore. Cloud Build uploads this directory as the build context, so
+# anything listed here never leaves the machine — .env in particular holds live secrets.
+.git/
+.gitignore
+.idea/
+*.iml
+target/
+uploads/
+.env
+.env.*
+!.env.example

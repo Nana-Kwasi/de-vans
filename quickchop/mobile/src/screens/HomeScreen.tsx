@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, TextInput, RefreshControl, Image } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { CompositeScreenProps } from "@react-navigation/native";
@@ -12,10 +12,14 @@ import { resolveImageUrl } from "@/lib/config";
 import { RootStackParamList, TabParamList } from "@/navigation/types";
 import { MenuItem } from "@/api/types";
 import { MenuApi } from "@/api/endpoints";
-import { CATEGORIES, inCategory, foodEmoji } from "@/lib/menu";
+import { CATEGORIES, inCategory, foodEmoji, drinkTypeOf, isDrink } from "@/lib/menu";
+import { DrinkTabs } from "@/components/DrinkTabs";
+import { DrinkType } from "@/api/types";
 import { useCart } from "@/store/cart";
 import { useConfig } from "@/store/config";
 import { useDeviceLocation } from "@/hooks/useDeviceLocation";
+import { usePrefs } from "@/store/prefs";
+import { useNotificationFeed } from "@/hooks/useNotificationFeed";
 import { usePushToken } from "@/hooks/usePushToken";
 
 type Props = CompositeScreenProps<
@@ -26,11 +30,23 @@ type Props = CompositeScreenProps<
 export function HomeScreen({ navigation }: Props) {
   usePushToken();
   const location = useDeviceLocation();
+  const setDetected = usePrefs((st) => st.setDetected);
+  // Unread order updates, shown as a count on the bell so there is a reason to open it.
+  const { unreadCount } = useNotificationFeed();
+
+  // Share the detected location with the rest of the app so checkout can prefill the
+  // delivery address instead of making the customer retype where they already are.
+  useEffect(() => {
+    if (!location.loading && !location.denied && location.coords) {
+      setDetected(location.label, location.coords);
+    }
+  }, [location.loading, location.denied, location.label, location.coords, setDetected]);
   const { data: menu, isLoading, error, refetch, isRefetching } = useQuery({ queryKey: ["menu"], queryFn: MenuApi.list });
   const count = useCart((s) => s.count());
   const config = useConfig((s) => s.config);
   const [category, setCategory] = useState("all");
   const [query, setQuery] = useState("");
+  const [drinkTab, setDrinkTab] = useState<DrinkType>("soft");
 
   const sortByNewestFirst = (items: MenuItem[]) =>
     [...items].sort((a, b) => {
@@ -46,12 +62,20 @@ export function HomeScreen({ navigation }: Props) {
   const filtered = useMemo(() => {
     let list: MenuItem[] = sortedMenu;
     if (category !== "all") list = list.filter((m: MenuItem) => inCategory(m, category));
+    if (category === "drinks") list = list.filter((m: MenuItem) => drinkTypeOf(m) === drinkTab);
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       list = list.filter((m: MenuItem) => m.name.toLowerCase().includes(q) || (m.description ?? "").toLowerCase().includes(q));
     }
     return sortByNewestFirst(list);
-  }, [sortedMenu, category, query]);
+  }, [sortedMenu, category, query, drinkTab]);
+  const drinkCounts = useMemo(() => {
+    const drinks = sortedMenu.filter(isDrink);
+    return {
+      soft: drinks.filter((d) => drinkTypeOf(d) === "soft").length,
+      local: drinks.filter((d) => drinkTypeOf(d) === "local").length,
+    };
+  }, [sortedMenu]);
 
   return (
     <ScreenBackground>
@@ -74,6 +98,14 @@ export function HomeScreen({ navigation }: Props) {
               <Ionicons name="chevron-down" size={16} color={colors.textPrimary} />
             </View>
           </View>
+          <Pressable style={styles.cartBtn} onPress={() => navigation.navigate("Notifications")}>
+            <Ionicons name="notifications-outline" size={22} color={colors.textPrimary} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+              </View>
+            )}
+          </Pressable>
           <Pressable style={styles.cartBtn} onPress={() => navigation.navigate("Cart")}>
             <Ionicons name="bag-handle-outline" size={22} color={colors.textPrimary} />
             {count > 0 && (
@@ -115,18 +147,22 @@ export function HomeScreen({ navigation }: Props) {
           </Pressable>
         </View>
 
-        {/* Promo → admin-featured item */}
-        {promoItem && (
+        {/* Promo card — title, copy, button label and image all set by the admin.
+            The image falls back to the featured dish's own photo when none is set. */}
+        {config.promoEnabled && promoItem && (
           <View style={styles.promo}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.promoTitle}>Gonna Be a Good Day!</Text>
-              <Text style={styles.promoText}>Free delivery & 10% cashback on your first order.</Text>
+              <Text style={styles.promoTitle}>{config.promoTitle}</Text>
+              <Text style={styles.promoText}>{config.promoText}</Text>
               <Pressable style={styles.promoBtn} onPress={() => navigation.navigate("ItemDetail", { item: promoItem })}>
-                <Text style={styles.promoBtnText}>Order Now</Text>
+                <Text style={styles.promoBtnText}>{config.promoCta}</Text>
               </Pressable>
             </View>
-            {promoItem.photoUrl ? (
-              <Image source={{ uri: resolveImageUrl(promoItem.photoUrl) }} style={styles.promoImg} />
+            {config.promoImageUrl || promoItem.photoUrl ? (
+              <Image
+                source={{ uri: resolveImageUrl(config.promoImageUrl || promoItem.photoUrl) }}
+                style={styles.promoImg}
+              />
             ) : (
               <Text style={styles.promoEmoji}>{foodEmoji(promoItem.name)}</Text>
             )}
@@ -170,9 +206,22 @@ export function HomeScreen({ navigation }: Props) {
           })}
         </ScrollView>
 
+        {/* Drinks split into two shelves: bottled soft drinks and Ghanaian local drinks. */}
+        {category === "drinks" && (
+          <View style={{ marginTop: -8, marginBottom: 18 }}>
+            <DrinkTabs value={drinkTab} onChange={setDrinkTab} counts={drinkCounts} />
+          </View>
+        )}
+
         {/* Menu list */}
         <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>{category === "all" ? "Picks For You" : CATEGORIES.find((c) => c.key === category)?.label}</Text>
+          <Text style={styles.sectionTitle}>
+            {category === "all"
+              ? "Picks For You"
+              : category === "drinks"
+              ? drinkTab === "local" ? "Local drinks" : "Soft drinks"
+              : CATEGORIES.find((c) => c.key === category)?.label}
+          </Text>
           <Text style={styles.seeAll}>{filtered.length} items</Text>
         </View>
 
@@ -186,7 +235,9 @@ export function HomeScreen({ navigation }: Props) {
         ) : filtered.length === 0 ? (
           <View style={styles.stateCard}>
             <Text style={styles.stateEmoji}>🍽️</Text>
-            <Text style={styles.stateText}>No dishes in this category yet.</Text>
+            <Text style={styles.stateText}>
+              {category === "drinks" ? `No ${drinkTab === "local" ? "local" : "soft"} drinks yet.` : "No dishes in this category yet."}
+            </Text>
           </View>
         ) : (
           filtered.map((item: MenuItem) => (

@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Pressable } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,7 +7,8 @@ import { ScreenBackground } from "@/components/ScreenBackground";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { colors, radii } from "@/theme/glass";
 import { RootStackParamList } from "@/navigation/types";
-import { OrderApi } from "@/api/endpoints";
+import { useNotificationFeed } from "@/hooks/useNotificationFeed";
+import { useNotifications } from "@/store/notifications";
 import { Order, OrderStatus } from "@/api/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Notifications">;
@@ -16,6 +17,8 @@ type IconName = keyof typeof Ionicons.glyphMap;
 const STATUS_NOTE: Record<OrderStatus, { icon: IconName; title: string; body: string }> = {
   ORDER_RECEIVED: { icon: "receipt-outline", title: "Order received", body: "We've got your order and will start soon." },
   PREPARING: { icon: "restaurant-outline", title: "Preparing your food", body: "The kitchen is cooking your order." },
+  AWAITING_RIDER: { icon: "time-outline", title: "Food ready", body: "We're assigning a rider to bring it to you." },
+  RIDER_ASSIGNED: { icon: "person-outline", title: "Rider assigned", body: "Your rider is heading to the kitchen. Tap to see who." },
   OUT_FOR_DELIVERY: { icon: "bicycle-outline", title: "Out for delivery", body: "Your order is on the way to you." },
   DELIVERED: { icon: "checkmark-circle-outline", title: "Delivered", body: "Enjoy your meal! Tap to leave a review." },
   READY: { icon: "bag-check-outline", title: "Ready for pickup", body: "Your order is ready — come grab it!" },
@@ -34,11 +37,21 @@ function timeAgo(iso: string): string {
 }
 
 export function NotificationsScreen({ navigation }: Props) {
-  const { data: orders, isLoading, refetch, isRefetching } = useQuery<Order[]>({ queryKey: ["myOrders"], queryFn: OrderApi.mine });
+  const { items: feed, isLoading, refetch, isRefetching } = useNotificationFeed();
+  const markAllSeen = useNotifications((s) => s.markAllSeen);
 
-  const items = (orders ?? [])
-    .map((o: Order) => ({ ...STATUS_NOTE[o.status], id: o.id, when: o.createdAt, orderNumber: o.orderNumber }))
-    .sort((a: { when: string }, b: { when: string }) => new Date(b.when).getTime() - new Date(a.when).getTime());
+  // Opening the screen is what "reading" means here. Marked on unmount so the unread
+  // highlights stay visible while you are actually looking at them.
+  useEffect(() => () => markAllSeen(), [markAllSeen]);
+
+  const items = feed.map((f) => ({
+    ...STATUS_NOTE[f.status],
+    id: f.key,
+    orderId: f.orderId,
+    when: f.at,
+    orderNumber: f.orderNumber,
+    unread: f.unread,
+  }));
 
   return (
     <ScreenBackground>
@@ -60,18 +73,22 @@ export function NotificationsScreen({ navigation }: Props) {
             </View>
           }
           renderItem={({ item }) => (
-            <View style={styles.row}>
-              <View style={styles.icon}>
-                <Ionicons name={item.icon} size={20} color={colors.brand} />
+            <Pressable
+              style={[styles.row, item.unread && styles.rowUnread]}
+              onPress={() => navigation.navigate("OrderTracking", { orderId: item.orderId })}
+            >
+              <View style={[styles.icon, item.unread && styles.iconUnread]}>
+                <Ionicons name={item.icon} size={20} color={item.unread ? colors.textOnBrand : colors.brand} />
               </View>
               <View style={{ flex: 1 }}>
                 <View style={styles.rowTop}>
-                  <Text style={styles.title}>{item.title}</Text>
+                  <Text style={[styles.title, item.unread && styles.titleUnread]}>{item.title}</Text>
                   <Text style={styles.time}>{timeAgo(item.when)}</Text>
                 </View>
                 <Text style={styles.body}>Order {item.orderNumber} · {item.body}</Text>
               </View>
-            </View>
+              {item.unread ? <View style={styles.dot} /> : null}
+            </Pressable>
           )}
         />
       )}
@@ -80,6 +97,10 @@ export function NotificationsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  rowUnread: { backgroundColor: "#FFF5EC" },
+  iconUnread: { backgroundColor: colors.brand },
+  titleUnread: { fontWeight: "900" },
+  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.brand, alignSelf: "center", marginLeft: 8 },
   empty: { alignItems: "center", marginTop: 80 },
   emptyEmoji: { fontSize: 50, marginBottom: 10 },
   emptyTitle: { fontSize: 18, fontWeight: "800", color: colors.textPrimary },

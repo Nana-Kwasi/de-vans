@@ -6,9 +6,12 @@ import { colors, radii } from "@/theme/glass";
 type IconName = keyof typeof Ionicons.glyphMap;
 type Stage = "select" | "processing" | "success";
 
+// Mobile money only — that is what customers here actually pay with, and offering a
+// card option the business does not accept just creates failed checkouts.
 const METHODS: { key: string; icon: IconName; label: string; detail: string }[] = [
-  { key: "CARD", icon: "card", label: "Test Card", detail: "Visa •••• 4242" },
-  { key: "MOMO", icon: "phone-portrait", label: "Mobile Money", detail: "MTN •••• 8821" },
+  { key: "MOMO", icon: "phone-portrait", label: "MTN Mobile Money", detail: "Pay with MoMo" },
+  { key: "MOMO_VODA", icon: "phone-portrait", label: "Telecel Cash", detail: "Pay with Telecel Cash" },
+  { key: "MOMO_ATL", icon: "phone-portrait", label: "AirtelTigo Money", detail: "Pay with AT Money" },
 ];
 
 /**
@@ -26,7 +29,7 @@ export function MockPaymentSheet({
   onCancel: () => void;
   onSuccess: () => void;
 }) {
-  const [method, setMethod] = useState("CARD");
+  const [method, setMethod] = useState("MOMO");
   const [stage, setStage] = useState<Stage>("select");
 
   const pay = () => {

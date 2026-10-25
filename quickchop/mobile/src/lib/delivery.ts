@@ -41,19 +41,28 @@ export function etaLabel(customer: Coords | null): string {
   return mins ? `${mins} min` : "25–35 min";
 }
 
-// --- Distance-based delivery fee. The base/per-km/cap come from the admin
-//     settings (GET /api/config), so changing them in the dashboard updates
-//     what the app shows. ---
+// --- Distance-based delivery fee. MUST stay identical to OrderService.deliveryFeeFor on
+//     the server, which is what the customer is actually charged. The rates come from
+//     the admin settings (GET /api/config); the road factor from server config. ---
 
-/** Fee for a given distance: base + per-km (rounded up), capped. */
-export function computeDeliveryFee(km: number): number {
-  const { deliveryBaseFee, deliveryPerKm, deliveryMaxFee } = currentConfig();
-  return Math.min(deliveryMaxFee, deliveryBaseFee + deliveryPerKm * Math.ceil(Math.max(0, km)));
+/** Server default when an older backend doesn't send deliveryRoadFactor. */
+const DEFAULT_ROAD_FACTOR = 1.35;
+
+/** Fee for a straight-line distance: converted to road km, the base covers the first
+ *  `deliveryIncludedKm`, per-km applies to whole km beyond that, capped at the max. */
+export function computeDeliveryFee(straightKm: number): number {
+  const { deliveryBaseFee, deliveryPerKm, deliveryMaxFee, deliveryIncludedKm, deliveryRoadFactor } = currentConfig();
+  const roadKm = Math.max(0, straightKm) * (deliveryRoadFactor ?? DEFAULT_ROAD_FACTOR);
+  const chargeableKm = Math.max(0, Math.ceil(roadKm) - (deliveryIncludedKm ?? 0));
+  const fee = Math.min(deliveryMaxFee, deliveryBaseFee + deliveryPerKm * chargeableKm);
+  return Math.round(fee * 100) / 100;
 }
 
-/** Estimated fee from the store to the customer coords (capped, mirrors the
- *  backend). null only while the device location is still resolving. */
-export function estimateDeliveryFee(customer: Coords | null): number | null {
+/** Fee from the store to the customer coords, or 0 once the subtotal reaches the
+ *  free-delivery threshold. null only while the location is still resolving. */
+export function estimateDeliveryFee(customer: Coords | null, subtotal?: number): number | null {
+  const { freeDeliveryThreshold } = currentConfig();
+  if (subtotal != null && freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold) return 0;
   if (!customer) return null;
   return computeDeliveryFee(distanceKm(storeCoords(), customer));
 }

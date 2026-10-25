@@ -1,4 +1,4 @@
-import { MenuItem } from "@/api/types";
+import { DrinkType, MenuItem } from "@/api/types";
 
 export interface Category {
   key: string;
@@ -43,9 +43,27 @@ export function inCategory(item: MenuItem, categoryKey: string): boolean {
   return categoryOf(item) === categoryKey;
 }
 
+export const DRINK_TABS: { key: DrinkType; label: string; emoji: string }[] = [
+  { key: "soft", label: "Soft drinks", emoji: "🥤" },
+  { key: "local", label: "Local drinks", emoji: "🍹" },
+];
+
+const LOCAL_DRINK = /\b(sobolo|bissap|hibiscus|ginger|watermelon|pineapple|asaana|pito|brukina|burkina|lamugin|tamarind|tigernut|coconut|fresh|local|homemade|zomi)\b/;
+
+/** Soft or local. Uses the admin's choice; older drinks without one are guessed from the name. */
+export function drinkTypeOf(item: MenuItem): DrinkType {
+  if (item.drinkType) return item.drinkType;
+  return LOCAL_DRINK.test(`${item.name} ${item.description ?? ""}`.toLowerCase()) ? "local" : "soft";
+}
+
+export function isDrink(item: MenuItem): boolean {
+  return categoryOf(item) === "drinks";
+}
+
 export function foodEmoji(name: string): string {
   const n = name.toLowerCase();
-  if (/(drink|juice|water|soda|malt|cola)/.test(n)) return "🥤";
+  if (/(sobolo|ginger|watermelon|asaana|pito|brukina|juice)/.test(n)) return "🍹";
+  if (/(drink|water|soda|malt|cola)/.test(n)) return "🥤";
   if (n.includes("jollof") || n.includes("fried rice")) return "🍛";
   if (n.includes("rice")) return "🍚";
   if (n.includes("chicken")) return "🍗";

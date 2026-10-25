@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CustomersApi, OrdersApi, ReviewsApi } from "@/api/endpoints";
 import { Customer, Order, OrderStatus, Review } from "@/api/types";
@@ -8,6 +9,8 @@ import { Stars } from "@/components/Stars";
 const STATUS_STYLE: Record<OrderStatus, string> = {
   ORDER_RECEIVED: "bg-amber-100 text-amber-700",
   PREPARING: "bg-blue-100 text-blue-700",
+  AWAITING_RIDER: "bg-amber-100 text-amber-800",
+  RIDER_ASSIGNED: "bg-sky-100 text-sky-700",
   OUT_FOR_DELIVERY: "bg-purple-100 text-purple-700",
   DELIVERED: "bg-emerald-100 text-emerald-700",
   READY: "bg-emerald-100 text-emerald-700",
@@ -30,6 +33,16 @@ export function CustomersPage() {
   const { data: orders } = useQuery({ queryKey: ["orders", undefined], queryFn: () => OrdersApi.list() });
   const { data: reviews } = useQuery({ queryKey: ["reviews"], queryFn: ReviewsApi.list });
   const [selected, setSelected] = useState<Customer | null>(null);
+  // Global search links here as /customers?id=… — open that customer once the list loads.
+  const [params, setParams] = useSearchParams();
+  const wanted = params.get("id");
+  useEffect(() => {
+    const match = wanted && customers?.find((c) => c.id === wanted);
+    if (match) {
+      setSelected(match);
+      setParams({}, { replace: true });
+    }
+  }, [wanted, customers, setParams]);
   const allOrders = orders ?? [];
   const allReviews = reviews ?? [];
 

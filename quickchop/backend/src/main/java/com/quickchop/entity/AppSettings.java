@@ -44,6 +44,26 @@ public class AppSettings {
     @Column(name = "delivery_max_fee", nullable = false, precision = 10, scale = 2)
     private BigDecimal deliveryMaxFee;
 
+    @Column(name = "promo_enabled", nullable = false)
+    private boolean promoEnabled = true;
+
+    @Column(name = "promo_title", nullable = false, length = 120)
+    private String promoTitle;
+
+    @Column(name = "promo_text", nullable = false, length = 240)
+    private String promoText;
+
+    @Column(name = "promo_cta", nullable = false, length = 40)
+    private String promoCta;
+
+    /** Null falls back to the featured dish's own photo. */
+    @Column(name = "promo_image_url", columnDefinition = "text")
+    private String promoImageUrl;
+
+    /** Kilometres covered by the base fee before per-km charging starts. */
+    @Column(name = "delivery_included_km", nullable = false, precision = 10, scale = 2)
+    private BigDecimal deliveryIncludedKm;
+
     @Column(name = "free_delivery_threshold", nullable = false, precision = 10, scale = 2)
     private BigDecimal freeDeliveryThreshold;
 
@@ -89,6 +109,19 @@ public class AppSettings {
     public void setFreeDeliveryThreshold(BigDecimal freeDeliveryThreshold) { this.freeDeliveryThreshold = freeDeliveryThreshold; }
     public BigDecimal getMinOrderAmount() { return minOrderAmount; }
     public void setMinOrderAmount(BigDecimal minOrderAmount) { this.minOrderAmount = minOrderAmount; }
+    public boolean isPromoEnabled() { return promoEnabled; }
+    public void setPromoEnabled(boolean promoEnabled) { this.promoEnabled = promoEnabled; }
+    public String getPromoTitle() { return promoTitle; }
+    public void setPromoTitle(String promoTitle) { this.promoTitle = promoTitle; }
+    public String getPromoText() { return promoText; }
+    public void setPromoText(String promoText) { this.promoText = promoText; }
+    public String getPromoCta() { return promoCta; }
+    public void setPromoCta(String promoCta) { this.promoCta = promoCta; }
+    public String getPromoImageUrl() { return promoImageUrl; }
+    public void setPromoImageUrl(String promoImageUrl) { this.promoImageUrl = promoImageUrl; }
+
+    public BigDecimal getDeliveryIncludedKm() { return deliveryIncludedKm; }
+    public void setDeliveryIncludedKm(BigDecimal deliveryIncludedKm) { this.deliveryIncludedKm = deliveryIncludedKm; }
     public BigDecimal getMaxDeliveryKm() { return maxDeliveryKm; }
     public void setMaxDeliveryKm(BigDecimal maxDeliveryKm) { this.maxDeliveryKm = maxDeliveryKm; }
     public BigDecimal getStoreLat() { return storeLat; }

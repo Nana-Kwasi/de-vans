@@ -31,6 +31,16 @@ public class MenuService {
         return c;
     }
 
+    /** Drinks must be "soft" or "local" (defaulting to soft); anything else has no drink type. */
+    private static String drinkTypeFor(String category, String requested) {
+        if (!"drinks".equals(category)) return null;
+        String t = requested == null || requested.isBlank() ? "soft" : requested.trim().toLowerCase();
+        if (!t.equals("soft") && !t.equals("local")) {
+            throw new BadRequestException("Drink type must be soft or local.");
+        }
+        return t;
+    }
+
     public List<MenuItemDto> listAvailable() {
         return repo.findByAvailableTrue().stream().map(MenuService::toDto).toList();
     }
@@ -46,6 +56,7 @@ public class MenuService {
         item.setPrice(req.price());
         item.setPhotoUrl(req.photoUrl());
         item.setCategory(requireCategory(req.category()));
+        item.setDrinkType(drinkTypeFor(item.getCategory(), req.drinkType()));
         item.setAvailable(req.available() == null || req.available());
         item.setFeatured(Boolean.TRUE.equals(req.featured()));
         return toDto(repo.save(item));
@@ -59,6 +70,11 @@ public class MenuService {
         if (req.price() != null) item.setPrice(req.price());
         if (req.photoUrl() != null) item.setPhotoUrl(req.photoUrl());
         if (req.category() != null) item.setCategory(requireCategory(req.category()));
+        if (req.category() != null || req.drinkType() != null) {
+            // Keep the existing type when only the category is re-sent; re-validate either way.
+            String requested = req.drinkType() != null ? req.drinkType() : item.getDrinkType();
+            item.setDrinkType(drinkTypeFor(item.getCategory(), requested));
+        }
         if (req.available() != null) item.setAvailable(req.available());
         if (req.featured() != null) item.setFeatured(req.featured());
         return toDto(repo.save(item));
@@ -71,6 +87,7 @@ public class MenuService {
 
     static MenuItemDto toDto(MenuItem m) {
         return new MenuItemDto(m.getId(), m.getName(), m.getDescription(),
-                m.getPrice(), m.getPhotoUrl(), m.getCategory(), m.isAvailable(), m.isFeatured());
+                m.getPrice(), m.getPhotoUrl(), m.getCategory(), m.isAvailable(), m.isFeatured(),
+                m.getDrinkType());
     }
 }

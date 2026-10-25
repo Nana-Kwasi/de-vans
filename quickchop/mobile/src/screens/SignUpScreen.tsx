@@ -8,7 +8,7 @@ import { PillButton } from "@/components/PillButton";
 import { colors, heading, subheading, radii } from "@/theme/glass";
 import { RootStackParamList } from "@/navigation/types";
 import { supabase } from "@/lib/supabase";
-import { signInWithGoogle } from "@/lib/googleAuth";
+import { signInWithGoogle, redirectTo } from "@/lib/googleAuth";
 import { CustomerApi } from "@/api/endpoints";
 import { useAuth } from "@/store/auth";
 
@@ -60,16 +60,27 @@ export function SignUpScreen({ navigation }: Props) {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { data: { full_name: fullName.trim() } },
+          options: {
+            data: { full_name: fullName.trim() },
+            // Only used if "Confirm email" is ever switched back on in Supabase.
+            // It costs nothing to keep correct, and password recovery redirects
+            // through the same allowlist.
+            emailRedirectTo: redirectTo,
+          },
         });
         if (error) throw error;
+
+        // With email confirmation off, Supabase returns a session immediately and the
+        // customer goes straight into the app. The fallback below only fires if
+        // confirmation is re-enabled in the dashboard — the app would otherwise look
+        // like it silently did nothing.
         if (data.session) {
-          await ensureProfile(fullName, phone); // email confirmation is off → straight in
+          await ensureProfile(fullName, phone);
           dismiss();
         } else {
           Alert.alert(
-            "Confirm your email",
-            "We sent you a confirmation link. Tap it, then sign in.",
+            "Check your email",
+            "We sent you a confirmation link. Tap it to finish signing up.",
             [{ text: "OK", onPress: () => setMode("signin") }]
           );
         }

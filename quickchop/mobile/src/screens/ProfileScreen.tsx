@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from "react-native";
+import { LEGAL_URL } from "@/api/endpoints";
 import { CompositeScreenProps } from "@react-navigation/native";
 import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -78,6 +79,25 @@ export function ProfileScreen({ navigation }: Props) {
               </View>
               <Text style={styles.rowLabel}>{row.label}</Text>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          ))}
+        </GlassCard>
+
+        <GlassCard style={styles.menuCard} padded={false}>
+          {([
+            ["shield-checkmark-outline", "Privacy Policy", "customer-privacy"],
+            ["document-text-outline", "Terms of Service", "customer-terms"],
+          ] as const).map(([icon, label, slug], i) => (
+            <Pressable
+              key={slug}
+              style={[styles.row, i === 0 && styles.rowDivider]}
+              onPress={() => Linking.openURL(LEGAL_URL(slug))}
+            >
+              <View style={styles.rowIcon}>
+                <Ionicons name={icon} size={19} color={colors.brand} />
+              </View>
+              <Text style={styles.rowLabel}>{label}</Text>
+              <Ionicons name="open-outline" size={17} color={colors.textMuted} />
             </Pressable>
           ))}
         </GlassCard>

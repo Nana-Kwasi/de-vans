@@ -14,7 +14,9 @@ export type RootStackParamList = {
   Welcome: undefined;
   SignUp: undefined;
   Main: NavigatorScreenParams<TabParamList> | undefined;
-  ItemDetail: { item: MenuItem };
+  // `item` when navigating inside the app (we already have it); `itemId` when arriving
+  // from a shared link, where only the id travels and the screen resolves the rest.
+  ItemDetail: { item: MenuItem; itemId?: undefined } | { item?: undefined; itemId: string };
   Cart: undefined;
   DeliveryDetails: undefined;
   Payment: { order: Order };

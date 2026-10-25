@@ -10,7 +10,7 @@ export const dateTime = (iso: string) =>
     minute: "2-digit",
   });
 
-export const BUSINESS_NAME = "QOOKA QOOKS";
+export const BUSINESS_NAME = "Qooka Qooks Restaurant";
 
 /** The mobile app tags fulfillment + contact phone into the kitchen note
  *  (e.g. "[DELIVERY] · ☎ +233… · extra pepper"). Pull those back out for display. */

@@ -1,197 +1,189 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { OrdersApi, ReviewsApi } from "@/api/endpoints";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { OrdersApi } from "@/api/endpoints";
 import { config } from "@/api/config";
-import { Order, OrderStatus, Review } from "@/api/types";
-import { money, dateTime, parseOrderMeta } from "@/theme/format";
-import { Stars } from "@/components/Stars";
+import { Order, OrderStatus } from "@/api/types";
+import { money, dateTime } from "@/theme/format";
+import { STATUS_STYLE, ago, isTerminal, statusLabel } from "@/theme/orders";
 
-const FILTERS: { label: string; value?: OrderStatus }[] = [
+type Filter = { label: string; value?: OrderStatus | "ACTIVE" };
+
+const FILTERS: Filter[] = [
+  { label: "Active", value: "ACTIVE" },
   { label: "All" },
   { label: "Received", value: "ORDER_RECEIVED" },
   { label: "Preparing", value: "PREPARING" },
+  { label: "Waiting for rider", value: "AWAITING_RIDER" },
+  { label: "Rider assigned", value: "RIDER_ASSIGNED" },
   { label: "Out for delivery", value: "OUT_FOR_DELIVERY" },
   { label: "Delivered", value: "DELIVERED" },
   { label: "Ready (pickup)", value: "READY" },
   { label: "Cancelled", value: "CANCELLED" },
 ];
 
-// Pickup and delivery advance through different flows.
-const NEXT_DELIVERY: Partial<Record<OrderStatus, OrderStatus>> = {
-  ORDER_RECEIVED: "PREPARING",
-  PREPARING: "OUT_FOR_DELIVERY",
-  OUT_FOR_DELIVERY: "DELIVERED",
-};
-const NEXT_PICKUP: Partial<Record<OrderStatus, OrderStatus>> = {
-  ORDER_RECEIVED: "PREPARING",
-  PREPARING: "READY",
-};
-const nextStatus = (order: Order): OrderStatus | undefined =>
-  (order.pickup ? NEXT_PICKUP : NEXT_DELIVERY)[order.status];
+const itemCount = (o: Order) => o.items.reduce((n, i) => n + i.quantity, 0);
 
-// PREPARING reads as "Processing" for pickup, "Preparing" for delivery.
-const statusLabel = (status: OrderStatus, pickup: boolean): string => {
-  if (status === "PREPARING" && pickup) return "Processing";
-  return status.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
-};
-
-const STATUS_STYLE: Record<OrderStatus, string> = {
-  ORDER_RECEIVED: "bg-amber-100 text-amber-700",
-  PREPARING: "bg-blue-100 text-blue-700",
-  OUT_FOR_DELIVERY: "bg-purple-100 text-purple-700",
-  DELIVERED: "bg-emerald-100 text-emerald-700",
-  READY: "bg-emerald-100 text-emerald-700",
-  CANCELLED: "bg-red-100 text-red-700",
-};
-
+/**
+ * The order board: a compact, scannable list. Everything you can do to an order lives
+ * on its detail screen (/orders/:id) — open a row to act on it.
+ */
 export function LiveOrdersPage() {
-  const [filter, setFilter] = useState<OrderStatus | undefined>(undefined);
-  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState<Filter["value"]>("ACTIVE");
+  const [text, setText] = useState("");
 
-  const { data: orders, isLoading } = useQuery({
-    queryKey: ["orders", filter],
-    queryFn: () => OrdersApi.list(filter),
+  // One fetch for everything; filters are applied locally so counts stay visible on every chip.
+  const { data: orders = [], isLoading, dataUpdatedAt } = useQuery({
+    queryKey: ["orders", undefined],
+    queryFn: () => OrdersApi.list(),
     refetchInterval: config.ordersRefreshMode === "poll" ? config.ordersPollMs : false,
   });
-  const { data: reviews } = useQuery({ queryKey: ["reviews"], queryFn: ReviewsApi.list });
-  const reviewByOrder = new Map<string, Review>();
-  (reviews ?? []).forEach((r) => r.orderId && reviewByOrder.set(r.orderId, r));
 
-  const mutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: OrderStatus }) => OrdersApi.updateStatus(id, status),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["orders"] }),
-  });
+  const counts = useMemo(() => {
+    const c = new Map<string, number>();
+    orders.forEach((o) => c.set(o.status, (c.get(o.status) ?? 0) + 1));
+    c.set("ACTIVE", orders.filter((o) => !isTerminal(o.status)).length);
+    c.set("ALL", orders.length);
+    return c;
+  }, [orders]);
+
+  const shown = useMemo(() => {
+    const t = text.trim().toLowerCase();
+    return orders.filter((o) => {
+      if (filter === "ACTIVE" && isTerminal(o.status)) return false;
+      if (filter && filter !== "ACTIVE" && o.status !== filter) return false;
+      if (!t) return true;
+      return [o.orderNumber, o.customerName, o.contactPhone, o.deliveryAddress, o.delivery?.riderName]
+        .some((v) => v?.toLowerCase().includes(t));
+    });
+  }, [orders, filter, text]);
+
+  const open = (o: Order) => navigate(`/orders/${o.id}`);
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-black text-ink">Live orders</h1>
-        <span className="hidden text-xs font-semibold text-ink-muted sm:block">
-          Auto-refreshing every {Math.round(config.ordersPollMs / 1000)}s
-        </span>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-ink">Live orders</h1>
+          <p className="text-xs font-semibold text-ink-muted">
+            {counts.get("ACTIVE") ?? 0} active · updated {dataUpdatedAt ? ago(new Date(dataUpdatedAt).toISOString()) : "—"} · refreshes every{" "}
+            {Math.round(config.ordersPollMs / 1000)}s
+          </p>
+        </div>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Filter by order #, name, phone…"
+          className="input w-full py-2.5 sm:w-72"
+        />
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.label}
-            onClick={() => setFilter(f.value)}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-              filter === f.value ? "bg-brand text-white" : "bg-surface text-ink-soft shadow-soft hover:bg-canvas"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* Swipeable on phones, wrapping on wider screens. */}
+      <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+        {FILTERS.map((f) => {
+          const n = counts.get(f.value ?? "ALL") ?? 0;
+          const active = filter === f.value;
+          return (
+            <button
+              key={f.label}
+              onClick={() => setFilter(f.value)}
+              className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-bold transition ${
+                active ? "bg-brand text-white" : "bg-surface text-ink-soft shadow-soft hover:bg-canvas"
+              }`}
+            >
+              {f.label}
+              <span className={`rounded-full px-1.5 text-xs ${active ? "bg-white/25" : "bg-canvas text-ink-muted"}`}>{n}</span>
+            </button>
+          );
+        })}
       </div>
 
       {isLoading ? (
         <p className="font-semibold text-ink-muted">Loading orders…</p>
-      ) : !orders?.length ? (
-        <div className="card p-10 text-center font-semibold text-ink-muted">No orders here yet.</div>
+      ) : shown.length === 0 ? (
+        <div className="card p-10 text-center font-semibold text-ink-muted">No orders here.</div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {orders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              review={reviewByOrder.get(order.id)}
-              onAdvance={(status) => mutation.mutate({ id: order.id, status })}
-              busy={mutation.isPending}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OrderCard({ order, review, onAdvance, busy }: { order: Order; review?: Review; onAdvance: (s: OrderStatus) => void; busy: boolean }) {
-  const isPickup = order.pickup;
-  const next = nextStatus(order);
-  const terminal = order.status === "DELIVERED" || order.status === "READY" || order.status === "CANCELLED";
-  const meta = parseOrderMeta(order);
-
-  return (
-    <div className="card flex flex-col p-5">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-lg font-black text-ink">{order.orderNumber}</span>
-        <span className={`chip ${STATUS_STYLE[order.status]}`}>{statusLabel(order.status, isPickup)}</span>
-      </div>
-      <div className="mb-3 flex items-center gap-2">
-        <span className={`chip ${isPickup ? "bg-indigo-100 text-indigo-700" : "bg-brand-soft text-brand"}`}>
-          {isPickup ? "🏪 Self-pickup" : "🛵 Delivery"}
-        </span>
-        <span className="text-xs font-semibold text-ink-muted">{dateTime(order.createdAt)}</span>
-      </div>
-
-      <ul className="mb-3 space-y-1">
-        {order.items.map((it) => (
-          <li key={it.id} className="flex justify-between text-sm text-ink">
-            <span className="font-semibold">
-              {it.quantity}× {it.name}
-              {it.addOns ? <span className="text-ink-muted"> ({it.addOns})</span> : null}
-            </span>
-            <span className="font-bold">{money(it.unitPrice * it.quantity)}</span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="space-y-1 border-t border-hairline pt-3 text-sm">
-        <div className="text-ink-soft">
-          <span className="font-bold text-ink">{isPickup ? "Pickup:" : "Deliver to:"}</span> {order.deliveryAddress}
-        </div>
-        {meta.phone && (
-          <div className="text-ink-soft">
-            <span className="font-bold text-ink">Contact:</span>{" "}
-            <a href={`tel:${meta.phone}`} className="font-semibold text-brand">{meta.phone}</a>
+        <>
+          {/* Desktop / tablet: table */}
+          <div className="card hidden overflow-hidden md:block">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-hairline bg-canvas/60 text-xs uppercase tracking-wide text-ink-muted">
+                  <th className="px-4 py-3">Order</th>
+                  <th className="px-4 py-3">Customer</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="hidden px-4 py-3 text-right lg:table-cell">Items</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="hidden px-4 py-3 xl:table-cell">Rider</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((o) => (
+                  <tr
+                    key={o.id}
+                    onClick={() => open(o)}
+                    className="cursor-pointer border-b border-hairline last:border-0 hover:bg-brand-soft/40"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {o.status === "ORDER_RECEIVED" && <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-brand" title="New" />}
+                        <span className="font-black text-ink">{o.orderNumber}</span>
+                      </div>
+                      <span className="text-xs text-ink-muted" title={dateTime(o.createdAt)}>{ago(o.createdAt)}</span>
+                    </td>
+                    <td className="max-w-[200px] px-4 py-3">
+                      <p className="truncate font-semibold text-ink">{o.customerName ?? "—"}</p>
+                      <p className="truncate text-xs text-ink-muted">{o.contactPhone ?? ""}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`chip ${o.pickup ? "bg-indigo-100 text-indigo-700" : "bg-brand-soft text-brand"}`}>
+                        {o.pickup ? "Pickup" : "Delivery"}
+                      </span>
+                    </td>
+                    <td className="hidden px-4 py-3 text-right text-ink-soft lg:table-cell">{itemCount(o)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-ink">{money(o.total)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`chip whitespace-nowrap ${STATUS_STYLE[o.status]}`}>{statusLabel(o.status, o.pickup)}</span>
+                      {!o.paidAt && o.status !== "CANCELLED" && (
+                        <span className="chip ml-1 whitespace-nowrap bg-red-50 text-red-600">Unpaid</span>
+                      )}
+                    </td>
+                    <td className="hidden max-w-[160px] truncate px-4 py-3 text-ink-soft xl:table-cell">
+                      {o.delivery?.riderName ?? (o.delivery?.status === "OPEN" ? "Finding…" : "—")}
+                    </td>
+                    <td className="px-4 py-3 text-right text-ink-muted">›</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-        {order.deliveryTimeNote && (
-          <div className="text-ink-soft"><span className="font-bold text-ink">When:</span> {order.deliveryTimeNote}</div>
-        )}
-      </div>
 
-      {meta.note && (
-        <div className="mt-2 rounded-xl bg-canvas px-3 py-2 text-sm text-ink-soft">📝 {meta.note}</div>
-      )}
-
-      <div className="mt-3 space-y-1 border-t border-hairline pt-3 text-sm">
-        <div className="flex justify-between text-ink-soft"><span>Subtotal</span><span>{money(order.subtotal)}</span></div>
-        <div className="flex justify-between text-ink-soft">
-          <span>Delivery fee</span>
-          <span className={Number(order.deliveryFee) === 0 ? "font-semibold text-emerald-600" : ""}>
-            {Number(order.deliveryFee) === 0 ? "Free" : money(order.deliveryFee)}
-          </span>
-        </div>
-        <div className="flex justify-between text-base font-black text-ink"><span>Total</span><span>{money(order.total)}</span></div>
-      </div>
-
-      {review && (
-        <div className="mt-3 rounded-xl bg-canvas p-3">
-          <div className="flex items-center gap-2">
-            <Stars value={review.rating} size="text-sm" />
-            <span className="text-xs font-bold text-ink-muted">Customer review</span>
+          {/* Phone: compact rows */}
+          <div className="card divide-y divide-hairline md:hidden">
+            {shown.map((o) => (
+              <button key={o.id} onClick={() => open(o)} className="flex w-full items-center gap-3 p-3.5 text-left active:bg-canvas">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    {o.status === "ORDER_RECEIVED" && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" />}
+                    <span className="font-black text-ink">{o.orderNumber}</span>
+                    <span className="text-xs text-ink-muted">{ago(o.createdAt)}</span>
+                  </div>
+                  <p className="truncate text-sm text-ink-soft">
+                    {o.customerName ?? "Customer"} · {o.pickup ? "Pickup" : "Delivery"} · {itemCount(o)} item{itemCount(o) === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-black text-ink">{money(o.total)}</p>
+                  <span className={`chip whitespace-nowrap text-[11px] ${STATUS_STYLE[o.status]}`}>{statusLabel(o.status, o.pickup)}</span>
+                  {!o.paidAt && o.status !== "CANCELLED" && <p className="mt-0.5 text-[11px] font-bold text-red-600">Unpaid</p>}
+                </div>
+              </button>
+            ))}
           </div>
-          {review.comment && <p className="mt-1 text-sm text-ink">{review.comment}</p>}
-        </div>
-      )}
-
-      {!terminal && (
-        <div className="mt-4 flex gap-2">
-          <button
-            disabled={busy}
-            onClick={() => onAdvance("CANCELLED")}
-            className="btn-ghost flex-1 py-2 text-sm text-red-600"
-          >
-            Cancel
-          </button>
-          {next && (
-            <button disabled={busy} onClick={() => onAdvance(next)} className="btn-primary flex-1 py-2 text-sm">
-              Mark {statusLabel(next, isPickup).toLowerCase()}
-            </button>
-          )}
-        </div>
+        </>
       )}
     </div>
   );

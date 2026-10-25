@@ -7,6 +7,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { PillButton } from "@/components/PillButton";
 import { PriceActionButton } from "@/components/PriceActionButton";
 import { QtyStepper } from "@/components/QtyStepper";
+import { AddDrinks } from "@/components/AddDrinks";
 import { colors, radii, money } from "@/theme/glass";
 import { estimateDeliveryFee, withinDeliveryArea } from "@/lib/delivery";
 import { foodEmoji } from "@/lib/menu";
@@ -30,7 +31,7 @@ export function CartScreen({ navigation }: Props) {
   const isPickup = fulfillment === "pickup";
   // Free delivery once the subtotal clears the admin-set threshold (0 = off).
   const freeDelivery = !isPickup && config.freeDeliveryThreshold > 0 && sub >= config.freeDeliveryThreshold;
-  const feeEstimate = isPickup || freeDelivery ? 0 : estimateDeliveryFee(coords);
+  const feeEstimate = isPickup || freeDelivery ? 0 : estimateDeliveryFee(coords, sub);
   const total = sub + (feeEstimate ?? 0);
 
   // Checkout gating from admin settings: store closed, outside delivery area, or below the minimum order.
@@ -46,7 +47,7 @@ export function CartScreen({ navigation }: Props) {
 
   if (lines.length === 0) {
     return (
-      <ScreenBackground>
+      <ScreenBackground avoidKeyboard>
         <ScreenHeader title="Cart" onBack={() => navigation.goBack()} />
         <View style={styles.empty}>
           <Text style={styles.emptyEmoji}>🛒</Text>
@@ -66,6 +67,7 @@ export function CartScreen({ navigation }: Props) {
         keyExtractor={(l) => l.item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 320 }}
+        ListFooterComponent={<AddDrinks />}
         renderItem={({ item: line }) => (
           <View style={styles.card}>
             <View style={styles.thumb}>

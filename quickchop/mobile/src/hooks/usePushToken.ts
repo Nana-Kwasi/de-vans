@@ -5,8 +5,12 @@ import { CustomerApi } from "@/api/endpoints";
 import { useAuth } from "@/store/auth";
 
 Notifications.setNotificationHandler({
+  // SDK 54 replaced the single `shouldShowAlert` with two flags: `shouldShowBanner`
+  // (the heads-up banner while the app is open) and `shouldShowList` (the entry kept
+  // in the notification centre). The old flag meant both, so both are true here.
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),

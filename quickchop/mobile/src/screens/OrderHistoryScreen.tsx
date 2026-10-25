@@ -22,6 +22,8 @@ type Props = CompositeScreenProps<
 const STATUS_LABEL: Record<string, string> = {
   ORDER_RECEIVED: "Received",
   PREPARING: "Preparing",
+  AWAITING_RIDER: "Finding rider",
+  RIDER_ASSIGNED: "Rider assigned",
   OUT_FOR_DELIVERY: "On the way",
   DELIVERED: "Delivered",
   CANCELLED: "Cancelled",

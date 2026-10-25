@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Qooka Qooks Restaurant</title>
+<meta property="og:title" content="Qooka Qooks Restaurant">
+<meta property="og:description" content="Home-cooked meals, delivered warm across Accra.">
+<meta property="og:image" content="https://qookaqooks.web.app/logo.jpeg">
+<link rel="icon" href="logo.jpeg">
+<link rel="stylesheet" href="style.css">
+<style>
+  .dish { text-align:center; padding: 30px 0 10px; }
+  .dish img { width:100%; max-width:380px; aspect-ratio: 4/3; object-fit:cover; border-radius:16px; }
+  .price { font-size:22px; font-weight:800; color:var(--brand); margin:10px 0 2px; }
+  .cta { display:inline-block; background:var(--brand); color:#fff; text-decoration:none;
+         padding:14px 28px; border-radius:12px; font-weight:700; margin:18px 0 8px; }
+  .secondary { font-size:14px; color:var(--muted); }
+  .skeleton { color: var(--muted); padding: 40px 0; }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <img src="logo.jpeg" alt="Qooka Qooks Restaurant logo">
+  <span class="name">Qooka Qooks Restaurant</span>
+  <nav><a href="index.html">Home</a></nav>
+</div></header>
+
+<div class="wrap"><main>
+  <div id="dish" class="dish"><p class="skeleton">Loading dish…</p></div>
+</main></div>
+
+<footer><div class="wrap">
+  © 2026 Qooka Qooks Restaurant · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a>
+</div></footer>
+
+<script>
+// The dish is fetched client-side from the public menu endpoint. Anyone with the app
+// installed can tap "Open in app", which hands off to the quickchop:// deep link and
+// lands on this same dish; everyone else still sees what was shared with them.
+(function () {
+  var API = "https://quickchop-backend-g4kiqgy27q-nw.a.run.app";
+  var id = new URLSearchParams(location.search).get("id");
+  var el = document.getElementById("dish");
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function fallback(msg) {
+    el.innerHTML =
+      '<h1>Qooka Qooks Restaurant</h1>' +
+      '<p class="tagline">' + esc(msg) + '</p>' +
+      '<a class="cta" href="quickchop://">Open in app</a>' +
+      '<p class="secondary">Not installed yet? Ask us for the app link.</p>';
+  }
+
+  if (!id) { fallback("Home-cooked meals, delivered warm across Accra."); return; }
+
+  fetch(API + "/api/menu")
+    .then(function (r) { return r.json(); })
+    .then(function (menu) {
+      var dish = menu.filter(function (m) { return m.id === id; })[0];
+      if (!dish) return fallback("That dish is no longer on the menu.");
+      document.title = dish.name + " — Qooka Qooks Restaurant";
+      el.innerHTML =
+        (dish.photoUrl ? '<img src="' + esc(dish.photoUrl) + '" alt="' + esc(dish.name) + '">' : "") +
+        '<h1>' + esc(dish.name) + '</h1>' +
+        '<div class="price">GHS ' + esc(Number(dish.price).toFixed(2)) + '</div>' +
+        (dish.description ? '<p class="tagline">' + esc(dish.description) + '</p>' : "") +
+        '<a class="cta" href="quickchop://item?id=' + encodeURIComponent(dish.id) + '">Open in app</a>' +
+        '<p class="secondary">Opens the Qooka Qooks app if you have it installed.</p>';
+    })
+    .catch(function () { fallback("Could not load the menu just now."); });
+})();
+</script>
+</body>
+</html>

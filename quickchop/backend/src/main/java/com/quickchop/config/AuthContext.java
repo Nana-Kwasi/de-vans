@@ -29,6 +29,15 @@ public final class AuthContext {
         throw new IllegalStateException("No authenticated admin in context");
     }
 
+    /** The current rider principal, if the request was authenticated as a rider. */
+    public static RiderPrincipal currentRider() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof RiderPrincipal rider) {
+            return rider;
+        }
+        throw new IllegalStateException("No authenticated rider in context");
+    }
+
     public static boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth != null && auth.getAuthorities().stream()

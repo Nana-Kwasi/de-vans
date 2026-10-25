@@ -1,34 +1,45 @@
 {
   "expo": {
-    "name": "QOOKA",
+    "name": "Qooka Qooks Restaurant",
     "slug": "quickchop",
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "quickchop",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#FF7A18"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.quickchop.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "QOOKA uses your location to show your delivery area and nearby options."
+        "NSLocationWhenInUseUsageDescription": "Qooka Qooks Restaurant uses your location to show your delivery area and to guide your rider to your exact door."
       }
     },
     "android": {
       "package": "com.quickchop.app",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FF7A18"
       }
     },
-    "plugins": ["expo-notifications"],
+    "plugins": [
+      "expo-notifications"
+    ],
     "extra": {
-      "apiBaseUrl": "http://localhost:8080",
-      "supabaseUrl": "https://YOUR-PROJECT.supabase.co",
-      "supabaseAnonKey": "YOUR-SUPABASE-ANON-KEY"
-    }
+      "apiBaseUrl": "https://quickchop-backend-g4kiqgy27q-nw.a.run.app",
+      "supabaseUrl": "https://xksrntgvwjeccooqcdwk.supabase.co",
+      "supabaseAnonKey": "sb_publishable_v2I6Ol6lE7Fkj3ZFOAbG4w_jkPgYNGp",
+      "eas": {
+        "projectId": "9e22cf32-a401-40d8-a076-ef7dc9300e13"
+      }
+    },
+    "owner": "francis-work-station",
+    "icon": "./assets/icon.png"
   }
 }

@@ -9,11 +9,13 @@ import { Order, OrderStatus } from "@/api/types";
 import { money, dateTime, parseOrderMeta, BUSINESS_NAME } from "@/theme/format";
 import { useAuth } from "@/store/auth";
 
-const ACTIVE: OrderStatus[] = ["ORDER_RECEIVED", "PREPARING", "OUT_FOR_DELIVERY"];
+const ACTIVE: OrderStatus[] = ["ORDER_RECEIVED", "PREPARING", "AWAITING_RIDER", "RIDER_ASSIGNED", "OUT_FOR_DELIVERY"];
 
 const STATUS_META: Record<OrderStatus, { label: string; color: string; chip: string }> = {
   ORDER_RECEIVED: { label: "Received", color: "#E69F00", chip: "bg-amber-100 text-amber-700" },
   PREPARING: { label: "Preparing", color: "#56B4E9", chip: "bg-blue-100 text-blue-700" },
+  AWAITING_RIDER: { label: "Waiting for rider", color: "#F0E442", chip: "bg-amber-100 text-amber-800" },
+  RIDER_ASSIGNED: { label: "Rider assigned", color: "#0072B2", chip: "bg-sky-100 text-sky-700" },
   OUT_FOR_DELIVERY: { label: "Out for delivery", color: "#CC79A7", chip: "bg-purple-100 text-purple-700" },
   DELIVERED: { label: "Delivered", color: "#009E73", chip: "bg-emerald-100 text-emerald-700" },
   READY: { label: "Ready", color: "#009E73", chip: "bg-emerald-100 text-emerald-700" },

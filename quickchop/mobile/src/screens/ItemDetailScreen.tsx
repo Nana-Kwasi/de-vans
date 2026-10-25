@@ -1,17 +1,20 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Share, Image } from "react-native";
+import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Share, Image, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { PriceActionButton } from "@/components/PriceActionButton";
 import { QtyStepper } from "@/components/QtyStepper";
 import { colors, radii, money } from "@/theme/glass";
 import { RootStackParamList } from "@/navigation/types";
+import { MenuApi } from "@/api/endpoints";
+import { MenuItem } from "@/api/types";
 import { useCart } from "@/store/cart";
 import { useConfig } from "@/store/config";
 import { useDeviceLocation } from "@/hooks/useDeviceLocation";
 import { etaLabel, estimateDeliveryFee } from "@/lib/delivery";
-import { resolveImageUrl } from "@/lib/config";
+import { resolveImageUrl, SHARE_BASE } from "@/lib/config";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ItemDetail">;
 
@@ -24,7 +27,25 @@ function foodEmoji(name: string): string {
 }
 
 export function ItemDetailScreen({ route, navigation }: Props) {
-  const { item } = route.params;
+  const passedItem = route.params.item;
+  const itemId = route.params.itemId;
+
+  // Arriving from a shared link gives us only an id, so the dish is looked up from the
+  // menu. Navigating inside the app already has the item and skips the fetch.
+  const { data: menu } = useQuery<MenuItem[]>({
+    queryKey: ["menu"],
+    queryFn: MenuApi.list,
+    enabled: !passedItem && !!itemId,
+  });
+  const item = passedItem ?? menu?.find((m) => m.id === itemId);
+
+  if (!item) {
+    return (
+      <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color={colors.brand} />
+      </View>
+    );
+  }
   const [qty, setQty] = useState(1);
   const [addOns, setAddOns] = useState("");
   const [liked, setLiked] = useState(false);
@@ -37,12 +58,36 @@ export function ItemDetailScreen({ route, navigation }: Props) {
     navigation.navigate("Cart");
   };
 
-  const onShare = () =>
-    Share.share({
-      message: `Check out ${item.name} on ${businessName} — ${money(item.price)}.${item.description ? ` ${item.description}` : ""}`,
-    }).catch(() => undefined);
+  // A share used to be name and price only, with nothing to tap. It now carries the
+  // dish photo (chat apps preview the image from its URL) and a link that opens this
+  // exact dish in the app — falling back to the website for anyone who lacks the app.
+  const onShare = () => {
+    const link = `${SHARE_BASE}/item?id=${encodeURIComponent(item.id)}`;
+    const photo = resolveImageUrl(item.photoUrl);
+    const message = [
+      `${item.name} — ${money(item.price)} at ${businessName}`,
+      item.description || null,
+      photo || null,
+      `Order it here: ${link}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    // iOS renders `url` as a rich attachment; Android ignores it, which is why the link
+    // is in the message body too.
+    Share.share(Platform.OS === "ios" ? { message, url: link } : { message }).catch(
+      () => undefined
+    );
+  };
 
   return (
+    // This screen builds its own hero layout rather than using ScreenBackground, so it
+    // needs its own keyboard handling — the add-ons field sits near the bottom and was
+    // covered as soon as the keyboard opened.
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
     <View style={styles.root}>
       {/* Hero */}
       <View style={styles.hero}>
@@ -110,6 +155,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         <PriceActionButton price={money(item.price * qty)} action="Add to Cart" onPress={addToCart} />
       </SafeAreaView>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 
